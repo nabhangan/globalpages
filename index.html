@@ -727,7 +727,8 @@
   .nsc-empty { color:var(--muted,#5b6472); font-size:13px; padding:24px 0; text-align:center; }
   #nsc-price, #nsc-dem, #nsc-rsi, #nsc-dq { width:100%; display:block; cursor:crosshair; }
   .nsc-body { display:flex; gap:16px; align-items:flex-start; }
-  .nsc-watchlist { flex:0 0 140px; min-width:0; background:var(--panel,#fff); border:1px solid var(--line,#e3e6ea);
+  .nsc-watchlist-col { flex:0 0 140px; min-width:0; display:flex; flex-direction:column; gap:12px; }
+  .nsc-watchlist { background:var(--panel,#fff); border:1px solid var(--line,#e3e6ea);
              border-radius:10px; padding:10px 12px; }
   .nsc-watchlist-head { font-size:11px; font-weight:700; color:var(--muted,#5b6472);
              text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
@@ -797,12 +798,22 @@
   <span class="nsc-stat" id="nsc-stat"></span>
 </div>
 <div class="nsc-body">
-  <div class="nsc-watchlist">
-    <div class="nsc-watchlist-head">Watchlist</div>
-    <div id="nsc-watchlist-list" class="nsc-watchlist-list"></div>
-    <div class="nsc-watchlist-add">
-      <input type="text" id="nsc-watchlist-input" list="nsc-search-list" placeholder="Add code" autocomplete="off">
-      <button type="button" id="nsc-watchlist-add-btn" class="nsc-btn" style="color:var(--text,#1c1f26);">+</button>
+  <div class="nsc-watchlist-col">
+    <div class="nsc-watchlist">
+      <div class="nsc-watchlist-head">Port Watch</div>
+      <div id="nsc-watchlist-list" class="nsc-watchlist-list"></div>
+      <div class="nsc-watchlist-add">
+        <input type="text" id="nsc-watchlist-input" list="nsc-search-list" placeholder="Add code" autocomplete="off">
+        <button type="button" id="nsc-watchlist-add-btn" class="nsc-btn" style="color:var(--text,#1c1f26);">+</button>
+      </div>
+    </div>
+    <div class="nsc-watchlist">
+      <div class="nsc-watchlist-head">delVolume Watch</div>
+      <div id="nsc-delvolwatch-list" class="nsc-watchlist-list"></div>
+    </div>
+    <div class="nsc-watchlist">
+      <div class="nsc-watchlist-head">Tracking Watch</div>
+      <div id="nsc-trackwatch-list" class="nsc-watchlist-list"></div>
     </div>
   </div>
   <div class="nsc-main">
@@ -867,6 +878,8 @@
   const watchlistEl = document.getElementById("nsc-watchlist-list");
   const watchlistInput = document.getElementById("nsc-watchlist-input");
   const watchlistAddBtn = document.getElementById("nsc-watchlist-add-btn");
+  const delvolwatchEl = document.getElementById("nsc-delvolwatch-list");
+  const trackwatchEl = document.getElementById("nsc-trackwatch-list");
   const screenBodyEl = document.getElementById("nsc-screen-body");
   const screenHeaderEls = Array.from(document.querySelectorAll(".nsc-screen-headerrow th"));
   const screenFilterEls = Array.from(document.querySelectorAll(".nsc-screen-filter"));
@@ -1180,7 +1193,7 @@
       left.innerHTML = '<div class="sym"' + (P.names[sym] ? ' title="' + escapeHtml(P.names[sym]) + '"' : "") + '>' + escapeHtml(sym) + "</div>";
       row.appendChild(left);
       const rm = document.createElement("span");
-      rm.className = "rm"; rm.textContent = "×"; rm.title = "Remove from watchlist";
+      rm.className = "rm"; rm.textContent = "×"; rm.title = "Remove from Port Watch";
       rm.addEventListener("click", ev => {
         ev.stopPropagation();
         watchlist = watchlist.filter(s => s !== sym);
@@ -1203,6 +1216,31 @@
   }
   watchlistAddBtn.addEventListener("click", addToWatchlist);
   watchlistInput.addEventListener("keydown", ev => { if (ev.key === "Enter") addToWatchlist(); });
+
+  // delVolume Watch / Tracking Watch: fixed (not user-editable) lists below Port Watch - same
+  // click-to-load-chart behavior, just no add/remove controls.
+  const DELVOLUME_WATCH = ["ANTHEM", "DOMS", "STLTECH", "AIAENG"];
+  function renderDelVolumeWatch(activeSym) {
+    delvolwatchEl.innerHTML = "";
+    DELVOLUME_WATCH.forEach(sym => {
+      const row = document.createElement("div");
+      row.className = "nsc-watchlist-row" + (sym === activeSym ? " active" : "");
+      row.innerHTML = '<div class="sym"' + (P.names[sym] ? ' title="' + escapeHtml(P.names[sym]) + '"' : "") + '>' + escapeHtml(sym) + "</div>";
+      row.addEventListener("click", () => { searchInput.value = sym; trySearch(); });
+      delvolwatchEl.appendChild(row);
+    });
+  }
+  const TRACKING_WATCH = ["APLAPOLLO", "ANTHEM", "CEMPRO", "NYKAA", "HFCL", "STLTECH", "DOMS", "AIAENG", "TENNIND"];
+  function renderTrackingWatch(activeSym) {
+    trackwatchEl.innerHTML = "";
+    TRACKING_WATCH.forEach(sym => {
+      const row = document.createElement("div");
+      row.className = "nsc-watchlist-row" + (sym === activeSym ? " active" : "");
+      row.innerHTML = '<div class="sym"' + (P.names[sym] ? ' title="' + escapeHtml(P.names[sym]) + '"' : "") + '>' + escapeHtml(sym) + "</div>";
+      row.addEventListener("click", () => { searchInput.value = sym; trySearch(); });
+      trackwatchEl.appendChild(row);
+    });
+  }
 
   // All-products screener table: one row per product (Stock Name, Piotroski Score, Weekly/
   // Monthly RSI(14), TL Momentum Score), sortable by clicking any header and filterable per
@@ -1285,12 +1323,12 @@
     const q = searchInput.value;
     if (!q.trim()) {
       statusEl.textContent = ""; emptyEl.style.display = ""; chartsEl.style.display = "none"; statEl.textContent = "";
-      currentSym = null; renderWatchlist(null); renderScreenTable(null); return;
+      currentSym = null; renderWatchlist(null); renderDelVolumeWatch(null); renderTrackingWatch(null); renderScreenTable(null); return;
     }
     const sym = resolveSearch(q);
     if (!sym) {
       statusEl.textContent = "No unique match"; emptyEl.style.display = ""; chartsEl.style.display = "none"; statEl.textContent = "";
-      currentSym = null; renderWatchlist(null); renderScreenTable(null); return;
+      currentSym = null; renderWatchlist(null); renderDelVolumeWatch(null); renderTrackingWatch(null); renderScreenTable(null); return;
     }
     statusEl.textContent = "";
     emptyEl.style.display = "none";
@@ -1299,6 +1337,8 @@
     render(sym);
     currentSym = sym;
     renderWatchlist(sym);
+    renderDelVolumeWatch(sym);
+    renderTrackingWatch(sym);
     renderScreenTable(sym);
   }
   searchInput.addEventListener("change", trySearch);
@@ -1314,6 +1354,8 @@
   });
 
   renderWatchlist(null);
+  renderDelVolumeWatch(null);
+  renderTrackingWatch(null);
   renderScreenTable(null);
   try {
     const tf = localStorage.getItem("nsc_tf");
